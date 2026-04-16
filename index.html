@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VibeVisual - YouTube Music Player</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=JetBrains+Mono&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #0a0502;
+            color: white;
+            overflow-x: hidden;
+        }
+        .font-mono { font-family: 'JetBrains Mono', monospace; }
+        
+        /* 커스텀 슬라이더 스타일 */
+        input[type="range"]::-webkit-slider-thumb {
+            appearance: none;
+            width: 12px;
+            height: 12px;
+            background: #ff4e00;
+            border-radius: 50%;
+            cursor: pointer;
+        }
+        
+        /* 글래스모피즘 효과 */
+        .glass {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        /* 배경 애니메이션 */
+        @keyframes pulse-slow {
+            0%, 100% { opacity: 0.3; transform: scale(1); }
+            50% { opacity: 0.5; transform: scale(1.1); }
+        }
+        .animate-pulse-slow {
+            animation: pulse-slow 8s infinite ease-in-out;
+        }
+
+        #favorites-panel {
+            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        #favorites-panel.hidden-panel {
+            transform: translateX(100%);
+        }
+    </style>
+</head>
+<body>
+    <!-- 배경 그래디언트 -->
+    <div class="fixed inset-0 pointer-events-none z-0">
+        <div class="absolute top-[-10%] left-[-10%] w-[60%] h-[60%] bg-[#3a1510] rounded-full blur-[120px] opacity-40 animate-pulse-slow"></div>
+        <div class="absolute bottom-[-10%] right-[-10%] w-[60%] h-[60%] bg-[#ff4e00] rounded-full blur-[120px] opacity-20"></div>
+    </div>
+
+    <div class="relative z-10 max-w-4xl mx-auto px-6 pt-12 pb-24 min-h-screen flex flex-col items-center justify-center">
+        
+        <!-- 검색 및 입력창 -->
+        <div class="w-full mb-12">
+            <div class="relative group">
+                <input id="search-input" type="text" placeholder="유튜브 URL 또는 비디오 ID를 입력하세요..." 
+                    class="w-full bg-white/5 border border-white/10 rounded-2xl py-4 px-6 pl-14 focus:outline-none focus:ring-2 focus:ring-[#ff4e00]/50 transition-all backdrop-blur-xl">
+                <i data-lucide="search" class="absolute left-5 top-1/2 -translate-y-1/2 text-white/40 group-focus-within:text-[#ff4e00] transition-colors w-5 h-5"></i>
+                <button id="play-btn" class="absolute right-3 top-1/2 -translate-y-1/2 bg-[#ff4e00] hover:bg-[#ff6a00] text-white px-4 py-1.5 rounded-xl text-sm font-medium transition-colors">
+                    재생
+                </button>
+            </div>
+        </div>
+
+        <!-- 비주얼라이저 영역 -->
+        <div class="flex-1 w-full flex flex-col items-center justify-center gap-8">
+            <div class="relative w-full aspect-[21/9] max-h-[300px] rounded-3xl overflow-hidden bg-black/20 border border-white/5 backdrop-blur-sm">
+                <canvas id="visualizer" width="800" height="300" class="w-full h-full"></canvas>
+                <div id="youtube-player" class="hidden"></div>
+                
+                <div id="empty-state" class="absolute inset-0 flex flex-col items-center justify-center text-white/20">
+                    <i data-lucide="music" class="w-16 h-16 mb-4 animate-bounce"></i>
+                    <p class="text-lg font-light tracking-widest uppercase">음악을 선택하여 시작하세요</p>
+                </div>
+            </div>
+
+            <div id="track-info" class="text-center hidden">
+                <h2 id="track-title" class="text-3xl font-light tracking-tight mb-2">YouTube Track</h2>
+                <p id="track-id" class="text-white/40 text-sm font-mono tracking-widest uppercase">ID: XXXXXXXX</p>
+            </div>
+        </div>
+
+        <!-- 하단 컨트롤 바 -->
+        <div class="fixed bottom-8 left-1/2 -translate-x-1/2 w-[90%] max-w-2xl glass rounded-[2.5rem] p-4 shadow-2xl flex items-center justify-between gap-4">
+            <div class="flex items-center gap-2">
+                <button id="toggle-favs" class="p-3 rounded-full hover:bg-white/10 text-white/60 transition-all">
+                    <i data-lucide="list-music" class="w-5 h-5"></i>
+                </button>
+            </div>
+
+            <div class="flex items-center gap-6">
+                <button id="skip-back" class="p-2 text-white/60 hover:text-white transition-colors">
+                    <i data-lucide="skip-back" class="w-6 h-6"></i>
+                </button>
+                <button id="play-pause" class="w-16 h-16 bg-white text-black rounded-full flex items-center justify-center hover:scale-105 active:scale-95 transition-all shadow-lg">
+                    <i id="play-pause-icon" data-lucide="play" class="w-8 h-8 fill-current ml-1"></i>
+                </button>
+                <button id="skip-forward" class="p-2 text-white/60 hover:text-white transition-colors">
+                    <i data-lucide="skip-forward" class="w-6 h-6"></i>
+                </button>
+            </div>
+
+            <div class="flex items-center gap-4">
+                <button id="fav-btn" class="p-3 rounded-full text-white/60 hover:text-white transition-all">
+                    <i data-lucide="heart" class="w-5 h-5"></i>
+                </button>
+                <div class="hidden sm:flex items-center gap-2 group">
+                    <i data-lucide="volume-2" class="w-4 h-4 text-white/40 group-hover:text-white transition-colors"></i>
+                    <input id="volume-slider" type="range" min="0" max="100" value="50" class="w-20 h-1 bg-white/10 rounded-lg appearance-none cursor-pointer accent-[#ff4e00]">
+                </div>
+            </div>
+        </div>
+
+        <!-- 즐겨찾기 패널 -->
+        <div id="favorites-panel" class="fixed top-0 right-0 w-full sm:w-80 h-full bg-[#0a0502]/95 backdrop-blur-3xl border-l border-white/10 z-50 p-8 overflow-y-auto hidden-panel">
+            <div class="flex items-center justify-between mb-8">
+                <h3 class="text-xl font-medium">즐겨찾기</h3>
+                <button id="close-favs" class="text-white/40 hover:text-white">닫기</button>
+            </div>
+            <div id="favorites-list" class="space-y-4">
+                <!-- 즐겨찾기 목록이 여기에 동적으로 생성됩니다 -->
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- 상태 관리 ---
+        let player;
+        let isPlaying = false;
+        let currentTrack = null;
+        let favorites = JSON.parse(localStorage.getItem('vibe-favorites') || '[]');
+        let volume = 50;
+
+        // --- 유튜브 API 로드 완료 시 호출 ---
+        function onYouTubeIframeAPIReady() {
+            console.log("YouTube API Ready");
+        }
+
+        function loadTrack(id) {
+            currentTrack = { id, title: "YouTube Track", thumbnail: `https://img.youtube.com/vi/${id}/mqdefault.jpg` };
+            
+            document.getElementById('empty-state').classList.add('hidden');
+            document.getElementById('track-info').classList.remove('hidden');
+            document.getElementById('track-title').textContent = "YouTube Track";
+            document.getElementById('track-id').textContent = `ID: ${id}`;
+            updateFavBtn();
+
+            if (!player) {
+                player = new YT.Player('youtube-player', {
+                    height: '0', width: '0', videoId: id,
+                    playerVars: { autoplay: 1, controls: 0, modestbranding: 1, rel: 0 },
+                    events: {
+                        onReady: (e) => { e.target.setVolume(volume); e.target.playVideo(); },
+                        onStateChange: (e) => {
+                            isPlaying = (e.data === YT.PlayerState.PLAYING);
+                            updatePlayPauseUI();
+                        }
+                    }
+                });
+            } else {
+                player.loadVideoById(id);
+            }
+        }
+
+        // --- UI 업데이트 함수 ---
+        function updatePlayPauseUI() {
+            const icon = document.getElementById('play-pause-icon');
+            icon.setAttribute('data-lucide', isPlaying ? 'pause' : 'play');
+            if (isPlaying) icon.classList.remove('ml-1');
+            else icon.classList.add('ml-1');
+            lucide.createIcons();
+        }
+
+        function updateFavBtn() {
+            const btn = document.getElementById('fav-btn');
+            const isFav = favorites.some(f => f.id === currentTrack?.id);
+            btn.style.color = isFav ? '#ff4e00' : '';
+            btn.querySelector('i').setAttribute('fill', isFav ? 'currentColor' : 'none');
+            lucide.createIcons();
+        }
+
+        function renderFavorites() {
+            const list = document.getElementById('favorites-list');
+            list.innerHTML = favorites.length === 0 ? '<p class="text-white/20 text-center py-12 italic">즐겨찾기가 없습니다</p>' : '';
+            
+            favorites.forEach(track => {
+                const item = document.createElement('div');
+                item.className = 'group relative flex items-center gap-4 p-3 rounded-2xl bg-white/5 hover:bg-white/10 transition-all cursor-pointer';
+                item.innerHTML = `
+                    <img src="${track.thumbnail}" class="w-12 h-12 rounded-lg object-cover">
+                    <div class="flex-1 min-w-0">
+                        <p class="text-sm font-medium truncate">${track.title}</p>
+                        <p class="text-xs text-white/40 font-mono">${track.id}</p>
+                    </div>
+                    <button class="remove-fav opacity-0 group-hover:opacity-100 p-2 text-white/20 hover:text-red-500 transition-all">
+                        <i data-lucide="trash-2" class="w-4 h-4"></i>
+                    </button>
+                `;
+                item.onclick = () => loadTrack(track.id);
+                item.querySelector('.remove-fav').onclick = (e) => {
+                    e.stopPropagation();
+                    favorites = favorites.filter(f => f.id !== track.id);
+                    localStorage.setItem('vibe-favorites', JSON.stringify(favorites));
+                    renderFavorites();
+                    updateFavBtn();
+                };
+                list.appendChild(item);
+            });
+            lucide.createIcons();
+        }
+
+        // --- 비주얼라이저 캔버스 애니메이션 ---
+        const canvas = document.getElementById('visualizer');
+        const ctx = canvas.getContext('2d');
+        let frequencies = new Array(64).fill(0);
+
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            const barWidth = canvas.width / 64;
+
+            frequencies = frequencies.map(f => {
+                if (isPlaying) {
+                    const target = Math.random() * 100 + 10;
+                    return f + (target - f) * 0.2;
+                }
+                return f * 0.9;
+            });
+
+            frequencies.forEach((f, i) => {
+                const x = i * barWidth;
+                const h = (f / 100) * canvas.height * 0.8;
+                const gradient = ctx.createLinearGradient(0, canvas.height, 0, canvas.height - h);
+                gradient.addColorStop(0, '#ff4e00');
+                gradient.addColorStop(1, '#ff9a00');
+                ctx.fillStyle = gradient;
+                ctx.fillRect(x + 2, canvas.height - h, barWidth - 4, h);
+                ctx.globalAlpha = 0.2;
+                ctx.fillRect(x + 2, canvas.height, barWidth - 4, h * 0.5);
+                ctx.globalAlpha = 1.0;
+            });
+            requestAnimationFrame(draw);
+        }
+
+        // --- 이벤트 리스너 ---
+        document.getElementById('play-btn').onclick = () => {
+            const query = document.getElementById('search-input').value;
+            const match = query.match(/(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/watch\?v=|youtu\.be\/)([a-zA-Z0-9_-]{11})/);
+            const id = match ? match[1] : (query.length === 11 ? query : null);
+            if (id) loadTrack(id);
+            else alert("유효한 유튜브 URL 또는 ID를 입력하세요.");
+        };
+
+        document.getElementById('play-pause').onclick = () => {
+            if (!player) return;
+            if (isPlaying) player.pauseVideo();
+            else player.playVideo();
+        };
+
+        document.getElementById('skip-back').onclick = () => player?.seekTo(player.getCurrentTime() - 10);
+        document.getElementById('skip-forward').onclick = () => player?.seekTo(player.getCurrentTime() + 10);
+        
+        document.getElementById('volume-slider').oninput = (e) => {
+            volume = e.target.value;
+            player?.setVolume(volume);
+        };
+
+        document.getElementById('fav-btn').onclick = () => {
+            if (!currentTrack) return;
+            const idx = favorites.findIndex(f => f.id === currentTrack.id);
+            if (idx > -1) favorites.splice(idx, 1);
+            else favorites.push(currentTrack);
+            localStorage.setItem('vibe-favorites', JSON.stringify(favorites));
+            updateFavBtn();
+            renderFavorites();
+        };
+
+        document.getElementById('toggle-favs').onclick = () => {
+            document.getElementById('favorites-panel').classList.remove('hidden-panel');
+            renderFavorites();
+        };
+        document.getElementById('close-favs').onclick = () => document.getElementById('favorites-panel').classList.add('hidden-panel');
+
+        // 초기화
+        lucide.createIcons();
+        draw();
+
+        // 유튜브 IFrame API 스크립트 로드
+        const tag = document.createElement('script');
+        tag.src = "https://www.youtube.com/iframe_api";
+        document.body.appendChild(tag);
+    </script>
+</body>
+</html>
