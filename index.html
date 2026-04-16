@@ -3,475 +3,468 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>DeepBlue - AI Music Recommender</title>
+    <title>NEURAL-MAZE: Deep Learning Simulation</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=JetBrains+Mono&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;700&family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
     <script src="https://unpkg.com/lucide@latest"></script>
     <style>
         :root {
-            --deep-blue: #020617;
-            --neon-blue: #38bdf8;
-            --glass-blue: rgba(15, 23, 42, 0.8);
+            --bg: #020617;
+            --panel: #0f172a;
+            --accent: #22d3ee;
+            --wall: #1e293b;
+            --gem: #fbbf24;
+            --ai: #f472b6;
         }
 
         body {
             font-family: 'Inter', sans-serif;
-            background-color: var(--deep-blue);
-            color: #e2e8f0;
+            background-color: var(--bg);
+            color: #cbd5e1;
             overflow: hidden;
-            height: 100vh;
         }
 
         .font-mono { font-family: 'JetBrains Mono', monospace; }
 
-        /* 잔잔한 배경 애니메이션 */
-        .bg-glow {
-            position: fixed;
-            top: 50%;
-            left: 50%;
-            width: 100vw;
-            height: 100vh;
-            transform: translate(-50%, -50%);
-            background: radial-gradient(circle at center, #0c4a6e 0%, transparent 70%);
-            opacity: 0.3;
-            filter: blur(100px);
-            z-index: -1;
-            animation: pulse-bg 15s infinite ease-in-out;
+        /* 테크니컬 그리드 배경 */
+        .grid-bg {
+            background-image: radial-gradient(circle at 1px 1px, #1e293b 1px, transparent 0);
+            background-size: 40px 40px;
         }
 
-        @keyframes pulse-bg {
-            0%, 100% { transform: translate(-50%, -50%) scale(1); opacity: 0.2; }
-            50% { transform: translate(-50%, -50%) scale(1.2); opacity: 0.4; }
+        /* 미로 캔버스 스타일 */
+        #maze-container {
+            position: relative;
+            box-shadow: 0 0 50px rgba(0, 0, 0, 0.5);
+            border: 1px solid rgba(34, 211, 238, 0.2);
         }
 
-        /* 글래스모피즘 */
-        .glass {
-            background: var(--glass-blue);
-            backdrop-filter: blur(24px);
-            border: 1px solid rgba(56, 189, 248, 0.1);
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+        .cell {
+            transition: background-color 0.2s;
         }
 
-        /* 커스텀 슬라이더 */
-        input[type="range"] {
-            appearance: none;
-            background: rgba(255, 255, 255, 0.1);
-            height: 4px;
-            border-radius: 2px;
-        }
-        input[type="range"]::-webkit-slider-thumb {
-            appearance: none;
-            width: 12px;
-            height: 12px;
-            background: var(--neon-blue);
-            border-radius: 50%;
-            cursor: pointer;
-            box-shadow: 0 0 10px var(--neon-blue);
+        /* 글래스모피즘 패널 */
+        .glass-panel {
+            background: rgba(15, 23, 42, 0.8);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.05);
         }
 
-        /* 사이드바 애니메이션 */
-        #playlist-panel {
-            transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
-        }
-        .panel-hidden { transform: translateX(100%); opacity: 0; }
+        /* 커스텀 스크롤바 */
+        .custom-scroll::-webkit-scrollbar { width: 4px; }
+        .custom-scroll::-webkit-scrollbar-thumb { background: var(--accent); border-radius: 10px; }
 
-        /* 로딩 애니메이션 */
-        .loader {
-            border: 2px solid rgba(56, 189, 248, 0.1);
-            border-top: 2px solid var(--neon-blue);
-            border-radius: 50%;
-            width: 24px;
-            height: 24px;
-            animation: spin 1s linear infinite;
+        /* 애니메이션 */
+        @keyframes pulse-ai {
+            0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(244, 114, 182, 0.7); }
+            70% { transform: scale(1.1); box-shadow: 0 0 0 10px rgba(244, 114, 182, 0); }
+            100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(244, 114, 182, 0); }
         }
-        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        .ai-active { animation: pulse-ai 1s infinite; }
+
+        @keyframes scanline {
+            0% { top: -100%; }
+            100% { top: 100%; }
+        }
+        .scanline {
+            position: absolute;
+            width: 100%;
+            height: 2px;
+            background: rgba(34, 211, 238, 0.1);
+            animation: scanline 4s linear infinite;
+        }
     </style>
 </head>
-<body>
-    <div class="bg-glow"></div>
+<body class="grid-bg min-h-screen flex flex-col">
 
-    <!-- 메인 레이아웃 -->
-    <div class="relative z-10 h-full flex flex-col items-center justify-between p-8">
+    <!-- 상단 상태바 -->
+    <header class="h-16 border-b border-white/5 glass-panel flex items-center justify-between px-8 z-20">
+        <div class="flex items-center gap-4">
+            <div class="w-8 h-8 bg-cyan-500/20 rounded flex items-center justify-center border border-cyan-500/40">
+                <i data-lucide="brain-circuit" class="w-5 h-5 text-cyan-400"></i>
+            </div>
+            <div>
+                <h1 class="text-sm font-bold tracking-widest text-white uppercase">Neural-Maze v1.0</h1>
+                <p class="text-[10px] font-mono text-cyan-500/60 uppercase">Reinforcement Learning Simulation</p>
+            </div>
+        </div>
         
-        <!-- 상단 헤더: 알고리즘 상태 표시 -->
-        <header class="w-full max-w-5xl flex justify-between items-start">
-            <div>
-                <h1 class="text-2xl font-light tracking-tighter text-sky-400 flex items-center gap-2">
-                    <i data-lucide="cpu" class="w-5 h-5"></i>
-                    MUSIC RECOMMENDER
-                </h1>
-                <p class="text-xs text-sky-900/60 font-mono mt-1 uppercase tracking-widest">Autonomous Curation Engine v2.4</p>
+        <div class="flex items-center gap-8 font-mono text-[11px]">
+            <div class="flex flex-col items-end">
+                <span class="text-slate-500 uppercase">Learning Rate</span>
+                <span id="stat-lr" class="text-cyan-400">0.10</span>
             </div>
-            <div class="glass px-4 py-2 rounded-2xl text-[10px] font-mono flex flex-col gap-1 border-sky-500/20">
-                <div class="flex justify-between gap-8">
-                    <span class="text-sky-500/50">ALGORITHM FOCUS:</span>
-                    <span id="algo-focus" class="text-sky-400">BALANCED</span>
-                </div>
-                <div class="flex justify-between gap-8">
-                    <span class="text-sky-500/50">LEARNING PROGRESS:</span>
-                    <span id="learning-stat" class="text-sky-400">0%</span>
-                </div>
+            <div class="flex flex-col items-end">
+                <span class="text-slate-500 uppercase">Exploration (ε)</span>
+                <span id="stat-epsilon" class="text-cyan-400">1.00</span>
             </div>
-        </header>
-
-        <!-- 중앙: 비주얼라이저 및 현재 곡 정보 -->
-        <main class="flex-1 w-full flex flex-col items-center justify-center gap-12">
-            <div class="relative w-full max-w-3xl aspect-video rounded-[3rem] overflow-hidden group">
-                <!-- 잔잔한 파동 비주얼라이저 -->
-                <canvas id="wave-canvas" class="w-full h-full"></canvas>
-                
-                <!-- 유튜브 플레이어 (숨김) -->
-                <div id="youtube-player" class="hidden"></div>
-
-                <!-- 중앙 재생 상태 오버레이 -->
-                <div id="player-overlay" class="absolute inset-0 flex flex-col items-center justify-center bg-black/20 backdrop-blur-[2px] transition-opacity duration-700">
-                    <div id="loading-spinner" class="loader mb-4 hidden"></div>
-                    <div id="track-meta" class="text-center">
-                        <span class="text-[10px] font-mono text-sky-500 tracking-[0.3em] uppercase mb-2 block">Now Recommending</span>
-                        <h2 id="track-title" class="text-4xl font-light tracking-tight text-white mb-4">Initializing...</h2>
-                        <div class="flex items-center justify-center gap-3">
-                            <span id="track-genre" class="px-3 py-1 rounded-full border border-sky-500/30 text-[10px] text-sky-400 font-mono uppercase">System</span>
-                        </div>
-                    </div>
-                </div>
+            <div class="flex flex-col items-end">
+                <span class="text-slate-500 uppercase">Episodes</span>
+                <span id="stat-episodes" class="text-cyan-400">0</span>
             </div>
-
-            <!-- 추천 알고리즘 시각화 바 -->
-            <div class="w-full max-w-xl flex flex-col gap-2">
-                <div class="flex justify-between text-[10px] font-mono text-sky-500/50 uppercase tracking-widest">
-                    <span>Genre Affinity Map</span>
-                    <span id="total-likes">0 LIKES</span>
-                </div>
-                <div id="genre-bars" class="flex h-1 gap-1 w-full opacity-50">
-                    <!-- 장르별 가중치가 여기에 막대로 표시됨 -->
-                </div>
-            </div>
-        </main>
-
-        <!-- 하단: 컨트롤러 -->
-        <footer class="w-full max-w-2xl glass rounded-[3rem] p-6 flex items-center justify-between gap-8 mb-4">
-            <div class="flex items-center gap-4">
-                <button id="btn-playlist" class="p-4 rounded-full hover:bg-sky-500/10 text-sky-500 transition-all">
-                    <i data-lucide="layers" class="w-5 h-5"></i>
-                </button>
-            </div>
-
-            <div class="flex items-center gap-8">
-                <button id="btn-prev" class="text-sky-700 hover:text-sky-400 transition-colors">
-                    <i data-lucide="rewind" class="w-6 h-6"></i>
-                </button>
-                <button id="btn-play-pause" class="w-20 h-20 bg-sky-500 text-slate-950 rounded-full flex items-center justify-center hover:scale-105 hover:bg-sky-400 active:scale-95 transition-all shadow-[0_0_30px_rgba(56,189,248,0.4)]">
-                    <i id="play-icon" data-lucide="play" class="w-8 h-8 fill-current ml-1"></i>
-                </button>
-                <button id="btn-next" class="text-sky-400 hover:text-sky-200 transition-colors">
-                    <i data-lucide="fast-forward" class="w-6 h-6"></i>
-                </button>
-            </div>
-
-            <div class="flex items-center gap-4">
-                <button id="btn-like" class="p-4 rounded-full text-slate-500 hover:text-rose-500 transition-all group">
-                    <i data-lucide="heart" class="w-6 h-6 group-active:scale-150 transition-transform"></i>
-                </button>
-                <div class="hidden md:flex items-center gap-3">
-                    <i data-lucide="volume-2" class="w-4 h-4 text-sky-500/50"></i>
-                    <input id="volume-control" type="range" min="0" max="100" value="50" class="w-24">
-                </div>
-            </div>
-        </footer>
-    </div>
-
-    <!-- 사이드바: 내 재생목록 -->
-    <aside id="playlist-panel" class="fixed top-0 right-0 h-full w-full sm:w-96 glass z-50 p-8 panel-hidden">
-        <div class="flex items-center justify-between mb-12">
-            <div>
-                <h3 class="text-xl font-light text-white">My Collection</h3>
-                <p class="text-[10px] font-mono text-sky-500 uppercase tracking-widest">Liked Tracks</p>
-            </div>
-            <button id="btn-close-playlist" class="text-slate-500 hover:text-white transition-colors">
-                <i data-lucide="x" class="w-6 h-6"></i>
-            </button>
         </div>
-        <div id="liked-list" class="space-y-4 overflow-y-auto max-h-[calc(100%-150px)] pr-2 custom-scrollbar">
-            <!-- 좋아요 한 곡들이 여기에 추가됨 -->
-        </div>
-    </aside>
+    </header>
+
+    <!-- 메인 시뮬레이션 영역 -->
+    <main class="flex-1 flex overflow-hidden">
+        
+        <!-- 왼쪽 사이드바: 컨트롤 -->
+        <aside class="w-72 border-r border-white/5 glass-panel p-6 flex flex-col gap-8">
+            <section>
+                <h3 class="text-[10px] font-mono text-slate-500 uppercase mb-4 tracking-widest">Simulation Mode</h3>
+                <div class="grid grid-cols-2 gap-2">
+                    <button id="mode-train" class="px-3 py-2 rounded bg-cyan-500 text-slate-950 text-xs font-bold transition-all">TRAIN</button>
+                    <button id="mode-build" class="px-3 py-2 rounded bg-slate-800 text-slate-400 text-xs font-bold hover:bg-slate-700 transition-all">BUILD</button>
+                </div>
+            </section>
+
+            <section>
+                <h3 class="text-[10px] font-mono text-slate-500 uppercase mb-4 tracking-widest">Environment</h3>
+                <div class="flex flex-col gap-3">
+                    <button id="btn-reset-maze" class="w-full py-2 border border-white/10 rounded text-xs hover:bg-white/5 transition-all flex items-center justify-center gap-2">
+                        <i data-lucide="refresh-cw" class="w-3 h-3"></i> Generate New Maze
+                    </button>
+                    <button id="btn-clear-q" class="w-full py-2 border border-white/10 rounded text-xs hover:bg-white/5 transition-all flex items-center justify-center gap-2 text-rose-400 border-rose-500/20">
+                        <i data-lucide="trash-2" class="w-3 h-3"></i> Reset AI Memory
+                    </button>
+                </div>
+            </section>
+
+            <section>
+                <h3 class="text-[10px] font-mono text-slate-500 uppercase mb-4 tracking-widest">Speed Control</h3>
+                <input id="speed-slider" type="range" min="1" max="100" value="50" class="w-full accent-cyan-500">
+                <div class="flex justify-between text-[9px] font-mono mt-2 text-slate-600">
+                    <span>SLOW</span>
+                    <span>FAST</span>
+                </div>
+            </section>
+
+            <section class="flex-1 overflow-hidden flex flex-col">
+                <h3 class="text-[10px] font-mono text-slate-500 uppercase mb-4 tracking-widest">Neural Log</h3>
+                <div id="log-container" class="flex-1 bg-black/40 rounded p-3 font-mono text-[10px] text-cyan-500/70 overflow-y-auto custom-scroll space-y-1">
+                    <div>> System initialized.</div>
+                    <div>> Waiting for training...</div>
+                </div>
+            </section>
+        </aside>
+
+        <!-- 중앙: 미로 캔버스 -->
+        <section class="flex-1 relative flex items-center justify-center p-12">
+            <div id="maze-container" class="bg-slate-900 rounded-lg overflow-hidden">
+                <div class="scanline"></div>
+                <canvas id="maze-canvas"></canvas>
+            </div>
+
+            <!-- 하단 툴팁 -->
+            <div class="absolute bottom-8 left-1/2 -translate-x-1/2 glass-panel px-6 py-3 rounded-full flex items-center gap-6 text-[11px] font-mono">
+                <div class="flex items-center gap-2">
+                    <div class="w-3 h-3 bg-cyan-400 rounded-sm"></div>
+                    <span>AI Agent</span>
+                </div>
+                <div class="flex items-center gap-2">
+                    <div class="w-3 h-3 bg-amber-400 rounded-sm"></div>
+                    <span>Gem (Reward)</span>
+                </div>
+                <div class="flex items-center gap-2">
+                    <div class="w-3 h-3 bg-emerald-500 rounded-sm"></div>
+                    <span>Goal</span>
+                </div>
+                <div class="text-slate-500 ml-4">Click cell to place Gems / Toggle Walls</div>
+            </div>
+        </section>
+    </main>
 
     <script>
         /**
-         * MUSIC RECOMMENDER ENGINE
-         * 사용자의 취향을 학습하여 곡을 추천하는 핵심 로직
+         * NEURAL-MAZE ENGINE
+         * Q-Learning 기반 미로 탈출 시뮬레이션
          */
 
-        // 1. 초기 데이터셋 (추천 알고리즘의 씨앗)
-        const SONG_POOL = [
-            { id: 'jfKfPfyJRdk', title: 'lofi hip hop radio', genre: 'lofi' },
-            { id: '5qap5aO4i9A', title: 'lofi hip hop beats', genre: 'lofi' },
-            { id: 'DWcJFNfaw9c', title: 'Smooth Jazz Piano', genre: 'jazz' },
-            { id: '1W5BA0lDVLM', title: 'Midnight City Synth', genre: 'synthwave' },
-            { id: '4xDzrJKXOOY', title: 'Blade Runner Ambient', genre: 'synthwave' },
-            { id: 'hHW1oY26kxQ', title: 'Rainy Night Coffee Jazz', genre: 'jazz' },
-            { id: '5yx6BWVnrKY', title: 'Deep Focus Ambient', genre: 'ambient' },
-            { id: 'MCkTebktHVc', title: 'Cyberpunk Dark Synth', genre: 'synthwave' },
-            { id: '9UMxZofMNbA', title: 'Classical Study Music', genre: 'classical' },
-            { id: 'u6_p9v7p6m0', title: 'Ghibli Relaxing Piano', genre: 'classical' },
-            { id: '7NOSDKb0H8M', title: 'Chillstep Mix 2024', genre: 'electronic' },
-            { id: 'S_MOd40zlYU', title: 'Deep House Relax', genre: 'electronic' }
-        ];
-
-        // 2. 상태 관리
-        let state = {
-            player: null,
-            isPlaying: false,
-            currentTrack: null,
-            volume: 50,
-            favorites: JSON.parse(localStorage.getItem('mr-favorites') || '[]'),
-            genreWeights: JSON.parse(localStorage.getItem('mr-weights') || '{"lofi":1, "jazz":1, "synthwave":1, "ambient":1, "classical":1, "electronic":1}'),
-            history: []
+        // --- 상수 및 설정 ---
+        const GRID_SIZE = 15;
+        const CELL_SIZE = 40;
+        const ACTIONS = ['UP', 'RIGHT', 'DOWN', 'LEFT'];
+        
+        const REWARDS = {
+            STEP: -1,
+            WALL: -10,
+            GEM: 100,
+            GOAL: 500
         };
 
-        // 3. 추천 알고리즘 핵심
-        function getNextRecommendation() {
-            // 가중치 기반 랜덤 선택 (Weighted Random Selection)
-            const genres = Object.keys(state.genreWeights);
-            const totalWeight = genres.reduce((sum, g) => sum + state.genreWeights[g], 0);
+        let state = {
+            mode: 'TRAIN', // TRAIN | BUILD
+            maze: [],
+            qTable: {},
+            agent: { x: 1, y: 1 },
+            goal: { x: GRID_SIZE - 2, y: GRID_SIZE - 2 },
+            gems: [],
+            episodes: 0,
+            epsilon: 1.0,
+            learningRate: 0.1,
+            discountFactor: 0.9,
+            speed: 50,
+            isRunning: true
+        };
+
+        const canvas = document.getElementById('maze-canvas');
+        const ctx = canvas.getContext('2d');
+        canvas.width = GRID_SIZE * CELL_SIZE;
+        canvas.height = GRID_SIZE * CELL_SIZE;
+
+        // --- 미로 생성 (Recursive Backtracking) ---
+        function generateMaze() {
+            const maze = Array(GRID_SIZE).fill().map(() => Array(GRID_SIZE).fill(1));
             
-            let random = Math.random() * totalWeight;
-            let selectedGenre = genres[0];
-
-            for (let genre of genres) {
-                if (random < state.genreWeights[genre]) {
-                    selectedGenre = genre;
-                    break;
-                }
-                random -= state.genreWeights[genre];
-            }
-
-            // 선택된 장르에서 곡 뽑기 (최근 히스토리 제외)
-            const candidates = SONG_POOL.filter(s => s.genre === selectedGenre && s.id !== state.currentTrack?.id);
-            return candidates[Math.floor(Math.random() * candidates.length)];
-        }
-
-        function updateWeights(genre, increment) {
-            state.genreWeights[genre] = Math.max(0.1, state.genreWeights[genre] + increment);
-            localStorage.setItem('mr-weights', JSON.stringify(state.genreWeights));
-            updateAlgorithmUI();
-        }
-
-        // 4. 유튜브 플레이어 설정
-        function onYouTubeIframeAPIReady() {
-            // 초기 곡 추천
-            state.currentTrack = getNextRecommendation();
-            initPlayer();
-        }
-
-        function initPlayer() {
-            state.player = new YT.Player('youtube-player', {
-                height: '0', width: '0',
-                videoId: state.currentTrack.id,
-                playerVars: { autoplay: 1, controls: 0, modestbranding: 1, rel: 0 },
-                events: {
-                    onReady: (e) => {
-                        e.target.setVolume(state.volume);
-                        updateTrackUI();
-                    },
-                    onStateChange: (e) => {
-                        if (e.data === YT.PlayerState.PLAYING) {
-                            state.isPlaying = true;
-                            document.getElementById('loading-spinner').classList.add('hidden');
-                        } else if (e.data === YT.PlayerState.BUFFERING) {
-                            document.getElementById('loading-spinner').classList.remove('hidden');
-                        } else if (e.data === YT.PlayerState.ENDED) {
-                            playNext();
-                        } else {
-                            state.isPlaying = false;
-                        }
-                        updatePlayPauseUI();
+            function walk(x, y) {
+                maze[y][x] = 0;
+                const dirs = [[0, -2], [2, 0], [0, 2], [-2, 0]].sort(() => Math.random() - 0.5);
+                
+                for (let [dx, dy] of dirs) {
+                    const nx = x + dx, ny = y + dy;
+                    if (nx > 0 && nx < GRID_SIZE - 1 && ny > 0 && ny < GRID_SIZE - 1 && maze[ny][nx] === 1) {
+                        maze[y + dy/2][x + dx/2] = 0;
+                        walk(nx, ny);
                     }
                 }
-            });
-        }
-
-        function playNext() {
-            state.currentTrack = getNextRecommendation();
-            state.player.loadVideoById(state.currentTrack.id);
-            updateTrackUI();
-        }
-
-        // 5. 비주얼라이저: 잔잔한 딥 블루 파동
-        const canvas = document.getElementById('wave-canvas');
-        const ctx = canvas.getContext('2d');
-        let waveOffset = 0;
-
-        function resizeCanvas() {
-            canvas.width = canvas.offsetWidth * window.devicePixelRatio;
-            canvas.height = canvas.offsetHeight * window.devicePixelRatio;
-        }
-        window.addEventListener('resize', resizeCanvas);
-        resizeCanvas();
-
-        function drawWave() {
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-            
-            const time = Date.now() * 0.001;
-            const amplitude = state.isPlaying ? 40 : 10;
-            const frequency = 0.002;
-
-            // 3개의 레이어 파동
-            drawSingleWave(time, amplitude, frequency, 'rgba(56, 189, 248, 0.1)', 0);
-            drawSingleWave(time * 0.8, amplitude * 1.2, frequency * 1.1, 'rgba(56, 189, 248, 0.05)', 100);
-            drawSingleWave(time * 1.2, amplitude * 0.8, frequency * 0.9, 'rgba(56, 189, 248, 0.03)', -100);
-
-            requestAnimationFrame(drawWave);
-        }
-
-        function drawSingleWave(time, amp, freq, color, offset) {
-            ctx.beginPath();
-            ctx.moveTo(0, canvas.height / 2);
-
-            for (let x = 0; x < canvas.width; x++) {
-                const y = Math.sin(x * freq + time + offset) * amp * Math.sin(time * 0.5) + canvas.height / 2;
-                ctx.lineTo(x, y);
             }
-
-            ctx.strokeStyle = color;
-            ctx.lineWidth = 2;
-            ctx.stroke();
+            
+            walk(1, 1);
+            maze[state.goal.y][state.goal.x] = 0; // 출구 확보
+            state.maze = maze;
+            state.gems = [];
+            resetAgent();
+            log("New maze generated.");
         }
 
-        // 6. UI 업데이트 및 이벤트
-        function updateTrackUI() {
-            document.getElementById('track-title').textContent = state.currentTrack.title;
-            document.getElementById('track-genre').textContent = state.currentTrack.genre;
-            
-            const isFav = state.favorites.some(f => f.id === state.currentTrack.id);
-            const heart = document.getElementById('btn-like');
-            heart.style.color = isFav ? '#f43f5e' : '';
-            heart.querySelector('i').setAttribute('fill', isFav ? 'currentColor' : 'none');
-            
-            lucide.createIcons();
+        // --- Q-Learning 핵심 로직 ---
+        function getQ(x, y, action) {
+            const key = `${x},${y}`;
+            if (!state.qTable[key]) state.qTable[key] = { UP: 0, RIGHT: 0, DOWN: 0, LEFT: 0 };
+            return state.qTable[key][action];
         }
 
-        function updatePlayPauseUI() {
-            const icon = document.getElementById('play-icon');
-            icon.setAttribute('data-lucide', state.isPlaying ? 'pause' : 'play');
-            if (state.isPlaying) icon.classList.remove('ml-1');
-            else icon.classList.add('ml-1');
-            lucide.createIcons();
+        function setQ(x, y, action, value) {
+            const key = `${x},${y}`;
+            if (!state.qTable[key]) state.qTable[key] = { UP: 0, RIGHT: 0, DOWN: 0, LEFT: 0 };
+            state.qTable[key][action] = value;
         }
 
-        function updateAlgorithmUI() {
-            const genres = Object.keys(state.genreWeights);
-            const total = genres.reduce((sum, g) => sum + state.genreWeights[g], 0);
-            const container = document.getElementById('genre-bars');
-            container.innerHTML = '';
-
-            genres.forEach(g => {
-                const width = (state.genreWeights[g] / total) * 100;
-                const bar = document.createElement('div');
-                bar.className = 'h-full bg-sky-500 transition-all duration-1000';
-                bar.style.width = `${width}%`;
-                bar.title = `${g}: ${Math.round(width)}%`;
-                container.appendChild(bar);
-            });
-
-            // 학습 진행도 (가중치 편차로 계산)
-            const maxWeight = Math.max(...Object.values(state.genreWeights));
-            const progress = Math.min(100, Math.round((maxWeight - 1) * 20));
-            document.getElementById('learning-stat').textContent = `${progress}%`;
+        function chooseAction(x, y) {
+            // Epsilon-Greedy 전략
+            if (Math.random() < state.epsilon) {
+                return ACTIONS[Math.floor(Math.random() * ACTIONS.length)];
+            }
             
-            const focus = progress > 60 ? 'SPECIALIZED' : (progress > 30 ? 'LEARNING' : 'BALANCED');
-            document.getElementById('algo-focus').textContent = focus;
-            document.getElementById('total-likes').textContent = `${state.favorites.length} LIKES`;
+            const key = `${x},${y}`;
+            const qValues = state.qTable[key] || { UP: 0, RIGHT: 0, DOWN: 0, LEFT: 0 };
+            let maxVal = -Infinity;
+            let bestActions = [];
+            
+            for (let action of ACTIONS) {
+                if (qValues[action] > maxVal) {
+                    maxVal = qValues[action];
+                    bestActions = [action];
+                } else if (qValues[action] === maxVal) {
+                    bestActions.push(action);
+                }
+            }
+            return bestActions[Math.floor(Math.random() * bestActions.length)];
         }
 
-        function renderFavorites() {
-            const list = document.getElementById('liked-list');
-            list.innerHTML = state.favorites.length === 0 ? '<p class="text-slate-600 text-center py-20 italic text-xs">Your collection is empty.</p>' : '';
+        function updateAgent() {
+            if (state.mode !== 'TRAIN' || !state.isRunning) return;
+
+            const { x, y } = state.agent;
+            const action = chooseAction(x, y);
             
-            state.favorites.forEach(track => {
-                const item = document.createElement('div');
-                item.className = 'group flex items-center gap-4 p-3 rounded-2xl bg-white/5 hover:bg-white/10 transition-all cursor-pointer border border-transparent hover:border-sky-500/20';
-                item.innerHTML = `
-                    <div class="w-10 h-10 rounded-lg bg-sky-900/40 flex items-center justify-center text-sky-500">
-                        <i data-lucide="music" class="w-4 h-4"></i>
-                    </div>
-                    <div class="flex-1 min-w-0">
-                        <p class="text-xs font-medium text-slate-200 truncate">${track.title}</p>
-                        <p class="text-[9px] text-sky-700 font-mono uppercase">${track.genre}</p>
-                    </div>
-                    <button class="remove-fav opacity-0 group-hover:opacity-100 p-2 text-slate-600 hover:text-rose-500 transition-all">
-                        <i data-lucide="trash-2" class="w-4 h-4"></i>
-                    </button>
-                `;
-                item.onclick = () => {
-                    state.currentTrack = track;
-                    state.player.loadVideoById(track.id);
-                    updateTrackUI();
-                };
-                item.querySelector('.remove-fav').onclick = (e) => {
-                    e.stopPropagation();
-                    state.favorites = state.favorites.filter(f => f.id !== track.id);
-                    localStorage.setItem('mr-favorites', JSON.stringify(state.favorites));
-                    renderFavorites();
-                    updateTrackUI();
-                    updateAlgorithmUI();
-                };
-                list.appendChild(item);
-            });
-            lucide.createIcons();
-        }
+            let nx = x, ny = y;
+            if (action === 'UP') ny--;
+            if (action === 'DOWN') ny++;
+            if (action === 'LEFT') nx--;
+            if (action === 'RIGHT') nx++;
 
-        // 7. 버튼 리스너
-        document.getElementById('btn-play-pause').onclick = () => {
-            if (state.isPlaying) state.player.pauseVideo();
-            else state.player.playVideo();
-        };
+            let reward = REWARDS.STEP;
+            let hitWall = false;
 
-        document.getElementById('btn-next').onclick = () => playNext();
-        document.getElementById('btn-prev').onclick = () => {
-            // 히스토리가 있다면 이전 곡으로 (생략 가능)
-            state.player.seekTo(0);
-        };
-
-        document.getElementById('btn-like').onclick = () => {
-            if (!state.currentTrack) return;
-            const idx = state.favorites.findIndex(f => f.id === state.currentTrack.id);
-            
-            if (idx > -1) {
-                state.favorites.splice(idx, 1);
-                updateWeights(state.currentTrack.genre, -0.5); // 싫어하면 가중치 감소
+            // 경계 및 벽 체크
+            if (nx < 0 || nx >= GRID_SIZE || ny < 0 || ny >= GRID_SIZE || state.maze[ny][nx] === 1) {
+                reward = REWARDS.WALL;
+                nx = x; ny = y; // 제자리
+                hitWall = true;
+            } else if (nx === state.goal.x && ny === state.goal.y) {
+                reward = REWARDS.GOAL;
             } else {
-                state.favorites.push(state.currentTrack);
-                updateWeights(state.currentTrack.genre, 1.5); // 좋아하면 가중치 대폭 상승
+                // 보석 체크
+                const gemIdx = state.gems.findIndex(g => g.x === nx && g.y === ny);
+                if (gemIdx > -1) {
+                    reward = REWARDS.GEM;
+                    state.gems.splice(gemIdx, 1); // 보석 획득
+                    log(`AI found a GEM at [${nx}, ${ny}]! Reward +100`);
+                }
             }
-            
-            localStorage.setItem('mr-favorites', JSON.stringify(state.favorites));
-            updateTrackUI();
-            renderFavorites();
+
+            // Q-Value 업데이트 (Bellman Equation)
+            const oldQ = getQ(x, y, action);
+            const nextMaxQ = Math.max(...Object.values(state.qTable[`${nx},${ny}`] || { UP: 0, RIGHT: 0, DOWN: 0, LEFT: 0 }));
+            const newQ = oldQ + state.learningRate * (reward + state.discountFactor * nextMaxQ - oldQ);
+            setQ(x, y, action, newQ);
+
+            state.agent = { x: nx, y: ny };
+
+            // 에피소드 종료 체크
+            if (reward === REWARDS.GOAL) {
+                state.episodes++;
+                state.epsilon = Math.max(0.01, state.epsilon * 0.99); // 점차 탐험 감소
+                resetAgent();
+                log(`Episode ${state.episodes} complete. Goal reached!`);
+                updateStats();
+            }
+        }
+
+        function resetAgent() {
+            state.agent = { x: 1, y: 1 };
+        }
+
+        // --- 렌더링 ---
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            for (let y = 0; y < GRID_SIZE; y++) {
+                for (let x = 0; x < GRID_SIZE; x++) {
+                    const px = x * CELL_SIZE;
+                    const py = y * CELL_SIZE;
+
+                    // 벽/길 그리기
+                    if (state.maze[y][x] === 1) {
+                        ctx.fillStyle = '#1e293b';
+                        ctx.fillRect(px, py, CELL_SIZE, CELL_SIZE);
+                    } else {
+                        // Q-Value 시각화 (학습된 정도를 배경색으로)
+                        const qValues = state.qTable[`${x},${y}`];
+                        if (qValues) {
+                            const maxQ = Math.max(...Object.values(qValues));
+                            if (maxQ > 0) {
+                                ctx.fillStyle = `rgba(34, 211, 238, ${Math.min(0.3, maxQ / 500)})`;
+                                ctx.fillRect(px, py, CELL_SIZE, CELL_SIZE);
+                            }
+                        }
+                    }
+
+                    // 그리드 선
+                    ctx.strokeStyle = 'rgba(255,255,255,0.02)';
+                    ctx.strokeRect(px, py, CELL_SIZE, CELL_SIZE);
+                }
+            }
+
+            // 보석 그리기
+            state.gems.forEach(gem => {
+                ctx.fillStyle = '#fbbf24';
+                ctx.beginPath();
+                ctx.arc(gem.x * CELL_SIZE + CELL_SIZE/2, gem.y * CELL_SIZE + CELL_SIZE/2, 6, 0, Math.PI * 2);
+                ctx.fill();
+                // 광채 효과
+                ctx.shadowBlur = 10;
+                ctx.shadowColor = '#fbbf24';
+                ctx.stroke();
+                ctx.shadowBlur = 0;
+            });
+
+            // 목표 지점
+            ctx.fillStyle = '#10b981';
+            ctx.fillRect(state.goal.x * CELL_SIZE + 4, state.goal.y * CELL_SIZE + 4, CELL_SIZE - 8, CELL_SIZE - 8);
+
+            // AI 에이전트
+            const ax = state.agent.x * CELL_SIZE + CELL_SIZE/2;
+            const ay = state.agent.y * CELL_SIZE + CELL_SIZE/2;
+            ctx.fillStyle = '#f472b6';
+            ctx.beginPath();
+            ctx.arc(ax, ay, 10, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.shadowBlur = 15;
+            ctx.shadowColor = '#f472b6';
+            ctx.stroke();
+            ctx.shadowBlur = 0;
+
+            requestAnimationFrame(draw);
+        }
+
+        // --- 유틸리티 ---
+        function log(msg) {
+            const container = document.getElementById('log-container');
+            const div = document.createElement('div');
+            div.textContent = `> ${msg}`;
+            container.appendChild(div);
+            container.scrollTop = container.scrollHeight;
+        }
+
+        function updateStats() {
+            document.getElementById('stat-lr').textContent = state.learningRate.toFixed(2);
+            document.getElementById('stat-epsilon').textContent = state.epsilon.toFixed(2);
+            document.getElementById('stat-episodes').textContent = state.episodes;
+        }
+
+        // --- 이벤트 리스너 ---
+        canvas.addEventListener('mousedown', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            const x = Math.floor((e.clientX - rect.left) / CELL_SIZE);
+            const y = Math.floor((e.clientY - rect.top) / CELL_SIZE);
+
+            if (x < 0 || x >= GRID_SIZE || y < 0 || y >= GRID_SIZE) return;
+
+            if (state.mode === 'BUILD') {
+                if ((x === 1 && y === 1) || (x === state.goal.x && y === state.goal.y)) return;
+                state.maze[y][x] = state.maze[y][x] === 1 ? 0 : 1;
+                log(`Wall toggled at [${x}, ${y}]`);
+            } else {
+                if (state.maze[y][x] === 0) {
+                    state.gems.push({ x, y });
+                    log(`Gem placed at [${x}, ${y}]. AI will be attracted here.`);
+                }
+            }
+        });
+
+        document.getElementById('mode-train').onclick = () => {
+            state.mode = 'TRAIN';
+            document.getElementById('mode-train').className = "px-3 py-2 rounded bg-cyan-500 text-slate-950 text-xs font-bold transition-all";
+            document.getElementById('mode-build').className = "px-3 py-2 rounded bg-slate-800 text-slate-400 text-xs font-bold hover:bg-slate-700 transition-all";
+            log("Mode switched to TRAINING.");
         };
 
-        document.getElementById('volume-control').oninput = (e) => {
-            state.volume = e.target.value;
-            state.player?.setVolume(state.volume);
+        document.getElementById('mode-build').onclick = () => {
+            state.mode = 'BUILD';
+            document.getElementById('mode-build').className = "px-3 py-2 rounded bg-cyan-500 text-slate-950 text-xs font-bold transition-all";
+            document.getElementById('mode-train').className = "px-3 py-2 rounded bg-slate-800 text-slate-400 text-xs font-bold hover:bg-slate-700 transition-all";
+            log("Mode switched to BUILD. Click cells to toggle walls.");
         };
 
-        document.getElementById('btn-playlist').onclick = () => {
-            document.getElementById('playlist-panel').classList.remove('panel-hidden');
-            renderFavorites();
-        };
-        document.getElementById('btn-close-playlist').onclick = () => {
-            document.getElementById('playlist-panel').classList.add('panel-hidden');
+        document.getElementById('btn-reset-maze').onclick = () => generateMaze();
+        document.getElementById('btn-clear-q').onclick = () => {
+            state.qTable = {};
+            state.episodes = 0;
+            state.epsilon = 1.0;
+            updateStats();
+            log("AI memory wiped. Starting from scratch.");
         };
 
-        // 초기화 실행
+        document.getElementById('speed-slider').oninput = (e) => {
+            state.speed = e.target.value;
+        };
+
+        // --- 메인 루프 ---
+        function mainLoop() {
+            updateAgent();
+            // 속도 조절을 위한 타임아웃
+            const delay = 101 - state.speed;
+            setTimeout(mainLoop, delay);
+        }
+
+        // 초기화
         lucide.createIcons();
-        drawWave();
-        updateAlgorithmUI();
+        generateMaze();
+        draw();
+        mainLoop();
 
-        // 유튜브 API 로드
-        const tag = document.createElement('script');
-        tag.src = "https://www.youtube.com/iframe_api";
-        document.body.appendChild(tag);
     </script>
 </body>
 </html>
