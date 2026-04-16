@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>VibeVisual - YouTube Music Player</title>
+    <!-- 외부 라이브러리 로드: Tailwind CSS, Google Fonts, Lucide Icons -->
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=JetBrains+Mono&display=swap" rel="stylesheet">
     <script src="https://unpkg.com/lucide@latest"></script>
@@ -51,7 +52,7 @@
     </style>
 </head>
 <body>
-    <!-- 배경 그래디언트 -->
+    <!-- 배경 그래디언트 효과 -->
     <div class="fixed inset-0 pointer-events-none z-0">
         <div class="absolute top-[-10%] left-[-10%] w-[60%] h-[60%] bg-[#3a1510] rounded-full blur-[120px] opacity-40 animate-pulse-slow"></div>
         <div class="absolute bottom-[-10%] right-[-10%] w-[60%] h-[60%] bg-[#ff4e00] rounded-full blur-[120px] opacity-20"></div>
@@ -59,7 +60,7 @@
 
     <div class="relative z-10 max-w-4xl mx-auto px-6 pt-12 pb-24 min-h-screen flex flex-col items-center justify-center">
         
-        <!-- 검색 및 입력창 -->
+        <!-- 검색 및 입력 영역 -->
         <div class="w-full mb-12">
             <div class="relative group">
                 <input id="search-input" type="text" placeholder="유튜브 URL 또는 비디오 ID를 입력하세요..." 
@@ -71,7 +72,7 @@
             </div>
         </div>
 
-        <!-- 비주얼라이저 영역 -->
+        <!-- 비주얼라이저 및 트랙 정보 -->
         <div class="flex-1 w-full flex flex-col items-center justify-center gap-8">
             <div class="relative w-full aspect-[21/9] max-h-[300px] rounded-3xl overflow-hidden bg-black/20 border border-white/5 backdrop-blur-sm">
                 <canvas id="visualizer" width="800" height="300" class="w-full h-full"></canvas>
@@ -120,29 +121,29 @@
             </div>
         </div>
 
-        <!-- 즐겨찾기 패널 -->
+        <!-- 즐겨찾기 목록 패널 -->
         <div id="favorites-panel" class="fixed top-0 right-0 w-full sm:w-80 h-full bg-[#0a0502]/95 backdrop-blur-3xl border-l border-white/10 z-50 p-8 overflow-y-auto hidden-panel">
             <div class="flex items-center justify-between mb-8">
                 <h3 class="text-xl font-medium">즐겨찾기</h3>
                 <button id="close-favs" class="text-white/40 hover:text-white">닫기</button>
             </div>
             <div id="favorites-list" class="space-y-4">
-                <!-- 즐겨찾기 목록이 여기에 동적으로 생성됩니다 -->
+                <!-- 동적으로 생성되는 목록 -->
             </div>
         </div>
     </div>
 
     <script>
-        // --- 상태 관리 ---
+        // --- 상태 변수 ---
         let player;
         let isPlaying = false;
         let currentTrack = null;
         let favorites = JSON.parse(localStorage.getItem('vibe-favorites') || '[]');
         let volume = 50;
 
-        // --- 유튜브 API 로드 완료 시 호출 ---
+        // --- 유튜브 API 핸들러 ---
         function onYouTubeIframeAPIReady() {
-            console.log("YouTube API Ready");
+            // API 로드 완료
         }
 
         function loadTrack(id) {
@@ -171,7 +172,7 @@
             }
         }
 
-        // --- UI 업데이트 함수 ---
+        // --- UI 업데이트 로직 ---
         function updatePlayPauseUI() {
             const icon = document.getElementById('play-pause-icon');
             icon.setAttribute('data-lucide', isPlaying ? 'pause' : 'play');
@@ -218,7 +219,7 @@
             lucide.createIcons();
         }
 
-        // --- 비주얼라이저 캔버스 애니메이션 ---
+        // --- 비주얼라이저 애니메이션 루프 ---
         const canvas = document.getElementById('visualizer');
         const ctx = canvas.getContext('2d');
         let frequencies = new Array(64).fill(0);
@@ -250,7 +251,7 @@
             requestAnimationFrame(draw);
         }
 
-        // --- 이벤트 리스너 ---
+        // --- 이벤트 리스너 설정 ---
         document.getElementById('play-btn').onclick = () => {
             const query = document.getElementById('search-input').value;
             const match = query.match(/(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/watch\?v=|youtu\.be\/)([a-zA-Z0-9_-]{11})/);
@@ -289,11 +290,11 @@
         };
         document.getElementById('close-favs').onclick = () => document.getElementById('favorites-panel').classList.add('hidden-panel');
 
-        // 초기화
+        // 초기 실행
         lucide.createIcons();
         draw();
 
-        // 유튜브 IFrame API 스크립트 로드
+        // 유튜브 API 스크립트 동적 삽입
         const tag = document.createElement('script');
         tag.src = "https://www.youtube.com/iframe_api";
         document.body.appendChild(tag);
